@@ -36,7 +36,7 @@ exports.getAllNews = async (req, res) => {
 exports.createNews = async (req, res) => {
   try {
     const pictures = req.files ? req.files.map((file) => file.path) : [];
-    const tags = Array.isArray(req.body.tags) 
+    const tags = Array.isArray(req.body.tags)
       ? req.body.tags.map((tag) => tag.toLowerCase())
       : [req.body.tags.toLowerCase()];
 
@@ -79,7 +79,6 @@ exports.deleteNews = async (req, res) => {
   try {
     const news = await News.findByIdAndDelete(req.params.id);
     if (!news) return res.status(404).json({ message: "News not found" });
-    //delete image from cloudinary
     if (news.pictures && news.pictures.length > 0) {
       for (const url of news.pictures) {
         const publicId = url.split("/").slice(-2).join("/").split(".")[0];
@@ -103,6 +102,7 @@ exports.addComment = async (req, res) => {
     io.emit("newComment", {
       newsId: news._id,
       comment: news.comments[news.comments.length - 1],
+      socketId: req.body.socketId,
     });
 
     return res.json(news);
@@ -120,12 +120,13 @@ exports.likeNews = async (req, res) => {
     );
 
     const io = socket.getIO();
+
     io.emit("updateLikes", {
       newsId: news._id,
       likes: news.likes,
       dislikes: news.dislikes,
+      socketId: req.body.socketId,
     });
-
     return res.json(news);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -141,12 +142,13 @@ exports.dislikeNews = async (req, res) => {
     );
 
     const io = socket.getIO();
+
     io.emit("updateLikes", {
       newsId: news._id,
       likes: news.likes,
       dislikes: news.dislikes,
+      socketId: req.body.socketId,
     });
-
     return res.json(news);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -183,12 +185,13 @@ exports.unlikeNews = async (req, res) => {
     );
 
     const io = socket.getIO();
+
     io.emit("updateLikes", {
       newsId: news._id,
       likes: news.likes,
       dislikes: news.dislikes,
+      socketId: req.body.socketId,
     });
-
     return res.json(news);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -208,8 +211,8 @@ exports.undislikeNews = async (req, res) => {
       newsId: news._id,
       likes: news.likes,
       dislikes: news.dislikes,
+      socketId: req.body.socketId,
     });
-
     return res.json(news);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -217,10 +220,10 @@ exports.undislikeNews = async (req, res) => {
 };
 
 exports.getAllTags = async (req, res) => {
-    try {
-        const tags = await News.distinct("tags");
-        res.json(tags);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
+  try {
+    const tags = await News.distinct("tags");
+    res.json(tags);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };

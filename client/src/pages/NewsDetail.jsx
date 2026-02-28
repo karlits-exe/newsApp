@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import api from "../services/api";
-import socket from "../services/socket"; 
+import socket from "../services/socket";
 
 const NewsDetail = () => {
   const { id } = useParams();
@@ -22,7 +22,7 @@ const NewsDetail = () => {
         setNews(response.data);
         await api.patch(`/news/${id}/views`);
 
-        const saved = localStorage.getItem(`reaction_${id}`);
+        const saved = sessionStorage.getItem(`reaction_${id}`);
         if (saved) setReaction(saved);
       } catch (error) {
         console.error("Error fetching news:", error);
@@ -35,16 +35,20 @@ const NewsDetail = () => {
 
   useEffect(() => {
     socket.on("updateLikes", (data) => {
-      if (data.newsId === id) {
-        setNews((prev) => ({ ...prev, likes: data.likes, dislikes: data.dislikes }));
+      if (data.newsId.toString() === id && data.socketId !== socket.id) {
+        setNews((prev) => ({
+          ...prev,
+          likes: data.likes,
+          dislikes: data.dislikes,
+        }));
       }
     });
 
     socket.on("newComment", (data) => {
-      if (data.newsId === id) {
+      if (data.newsId.toString() === id && data.socketId !== socket.id) {
         setNews((prev) => ({
           ...prev,
-          comments: [...prev.comments, data.comment]
+          comments: [...prev.comments, data.comment],
         }));
       }
     });
@@ -58,13 +62,15 @@ const NewsDetail = () => {
   const handleLike = async () => {
     try {
       if (reaction === "liked") {
-        await api.patch(`/news/${id}/unlike`);
+        const response = await api.patch(`/news/${id}/unlike`, { socketId: socket.id });
+        setNews(response.data);
         setReaction(null);
-        localStorage.removeItem(`reaction_${id}`);
+        sessionStorage.removeItem(`reaction_${id}`);
       } else if (reaction === null) {
-        await api.patch(`/news/${id}/like`);
+        const response = await api.patch(`/news/${id}/like`, { socketId: socket.id });
+        setNews(response.data);
         setReaction("liked");
-        localStorage.setItem(`reaction_${id}`, "liked");
+        sessionStorage.setItem(`reaction_${id}`, "liked");
       }
     } catch (error) {
       console.error("Error liking news:", error);
@@ -74,13 +80,15 @@ const NewsDetail = () => {
   const handleDislike = async () => {
     try {
       if (reaction === "disliked") {
-        await api.patch(`/news/${id}/undislike`);
+        const response = await api.patch(`/news/${id}/undislike`, { socketId: socket.id });
+        setNews(response.data);
         setReaction(null);
-        localStorage.removeItem(`reaction_${id}`);
+        sessionStorage.removeItem(`reaction_${id}`);  
       } else if (reaction === null) {
-        await api.patch(`/news/${id}/dislike`);
+        const response = await api.patch(`/news/${id}/dislike`, { socketId: socket.id });
+        setNews(response.data);
         setReaction("disliked");
-        localStorage.setItem(`reaction_${id}`, "disliked");
+        sessionStorage.setItem(`reaction_${id}`, "disliked");  
       }
     } catch (error) {
       console.error("Error disliking news:", error);
@@ -92,7 +100,7 @@ const NewsDetail = () => {
     try {
       await api.post(`/news/${id}/comments`, {
         userId: socket.id,
-        comment
+        comment,
       });
       setComment("");
     } catch (error) {
@@ -146,15 +154,16 @@ const NewsDetail = () => {
 
       <h5>Comments</h5>
       <div className="mb-3">
-        {news.comments.length === 0
-          ? <p className="text-muted">No comments yet. Be the first!</p>
-          : news.comments.map((c) => (
+        {news.comments.length === 0 ? (
+          <p className="text-muted">No comments yet. Be the first!</p>
+        ) : (
+          news.comments.map((c) => (
             <div key={c._id} className="card mb-2 p-2">
               <small className="text-muted">{c.userId}</small>
               <p className="mb-0">{c.comment}</p>
             </div>
           ))
-        }
+        )}
       </div>
 
       <form onSubmit={handleComment}>
